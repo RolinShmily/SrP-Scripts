@@ -22,6 +22,9 @@
 - 📐 智能参考源视频质量
 - 📥 **Windows 首次运行自动下载 ffmpeg** ✨
 
+**效果预览：**
+![运行效果图](video-merge-audio-reencode/2026-03-10_20-57-59.png)
+
 **依赖：**
 - ⚙️ FFmpeg
   - **Windows**: 自动下载（首次运行时）
