@@ -150,14 +150,18 @@ ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_nvenc -f null -
 
 ### macOS
 
+**说明**：
+- **Apple Silicon (M1/M2/M3/M4)**：芯片集成 GPU，使用 VideoToolbox 硬件加速
+- **Intel Mac**：使用集成显卡或独立显卡，同样使用 VideoToolbox
+
 **安装 ffmpeg**：
 
 ```bash
 # 使用 Homebrew
 brew install ffmpeg
 
-# 确保支持 VideoToolbox
-brew reinstall ffmpeg --with-videosystem
+# 确保 VideoToolbox 支持已启用（默认启用）
+ffmpeg -hide_banner | grep -i videotoolbox
 ```
 
 **验证安装**：
@@ -182,7 +186,7 @@ ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_videotoolbox -f null -
 5. libx264 (CPU 软编码)
 
 ### macOS
-1. VideoToolbox (硬件加速)
+1. VideoToolbox (M 系列芯片 / Intel GPU 硬件加速)
 2. libx264 (CPU 软编码)
 
 ### Windows (Batch)
@@ -234,7 +238,7 @@ ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_videotoolbox -f null -
 | NVIDIA NVENC | Windows/Linux | ~500 FPS | 优秀 |
 | AMD AMF | Windows | ~400 FPS | 优秀 |
 | Intel Quick Sync | Windows/Linux | ~300 FPS | 良好 |
-| VideoToolbox | macOS | ~250 FPS | 优秀 |
+| VideoToolbox | macOS (M 系列/Intel) | ~250 FPS | 优秀 |
 | VAAPI | Linux | ~200 FPS | 良好 |
 | libx264 (CPU) | 全平台 | ~30-60 FPS | 最佳 |
 
@@ -274,12 +278,20 @@ ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_videotoolbox -f null -
 
 **症状**：检测不到 h264_videotoolbox 编码器
 
-**原因**：ffmpeg 编译时未包含 VideoToolbox 支持
+**原因**：
+1. ffmpeg 编译时未包含 VideoToolbox 支持（Homebrew 默认包含）
+2. 或使用了非官方版本的 ffmpeg
 
 **解决**：
 ```bash
-brew reinstall ffmpeg --with-videosystem
+# 重新安装官方 ffmpeg
+brew reinstall ffmpeg
+
+# 验证 VideoToolbox 支持
+ffmpeg -hide_banner -encoders | grep h264_videotoolbox
 ```
+
+**注意**：Homebrew 版本的 ffmpeg 默认已包含 VideoToolbox 支持，无需额外配置。
 
 ### 输出文件为空或编码失败
 
