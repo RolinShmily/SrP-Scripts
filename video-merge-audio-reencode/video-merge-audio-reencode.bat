@@ -63,12 +63,40 @@ if errorlevel 1 (
 echo Download completed. Extracting...
 echo.
 
-REM Extract only ffmpeg.exe using PowerShell
-powershell -Command "& {Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('%ZIP_FILE%', '%CACHE_DIR%'); $folder = Get-ChildItem '%CACHE_DIR%' -Directory | Select-Object -First 1; Move-Item -Path \"$($folder.FullName)\*\" -Destination '%CACHE_DIR%' -Force; Remove-Item -Path \"$($folder.FullName)\" -Force; Remove-Item '%ZIP_FILE%' -Force}"
+REM Extract zip to a temporary subfolder
+set "TEMP_EXTRACT_DIR=%CACHE_DIR%\temp_extract"
+if exist "%TEMP_EXTRACT_DIR%" rmdir /s /q "%TEMP_EXTRACT_DIR%"
+mkdir "%TEMP_EXTRACT_DIR%"
 
+powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%TEMP_EXTRACT_DIR%' -Force"
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Failed to extract zip file
+    del "%ZIP_FILE%"
+    rmdir /s /q "%TEMP_EXTRACT_DIR%"
+    pause
+    exit /b 1
+)
+
+REM Find and move ffmpeg binaries from subfolder
+for /d %%D in ("%TEMP_EXTRACT_DIR%\*") do (
+    echo Found ffmpeg folder: %%~nxD
+    move /Y "%%D\*.exe" "%CACHE_DIR%\" >nul 2>&1
+    move /Y "%%D\*.dll" "%CACHE_DIR%\" >nul 2>&1
+)
+
+REM Cleanup
+del "%ZIP_FILE%" 2>nul
+rmdir /s /q "%TEMP_EXTRACT_DIR%" 2>nul
+
+REM Verify extraction
 if not exist "%LOCAL_FFMPEG%" (
     echo.
     echo [ERROR] Failed to extract ffmpeg
+    echo ffmpeg.exe not found at: %LOCAL_FFMPEG%
+    echo.
+    echo Contents of cache directory:
+    dir /b "%CACHE_DIR%"
     echo.
     pause
     exit /b 1
@@ -76,12 +104,17 @@ if not exist "%LOCAL_FFMPEG%" (
 
 echo ffmpeg installed successfully to: %CACHE_DIR%
 echo.
+echo [INFO] Verifying ffmpeg...
+"%LOCAL_FFMPEG%" -version | findstr "ffmpeg version"
+echo.
 echo [INFO] You can delete this cache anytime to reclaim space:
 echo   %CACHE_DIR%
 echo.
 
 :ffmpeg_found
 echo [OK] ffmpeg found
+echo [INFO] Using ffmpeg at: %FFMPEG_PATH%
+echo.
 
 REM Set ffprobe path based on ffmpeg location
 set "FFPROBE_PATH="
@@ -90,6 +123,17 @@ if "%FFMPEG_PATH%"=="ffmpeg" (
 ) else (
     set "FFPROBE_PATH=%FFMPEG_PATH:\ffmpeg.exe=\ffprobe.exe%"
 )
+
+REM Verify ffprobe exists
+if not "%FFPROBE_PATH%"=="ffprobe" (
+    if not exist "%FFPROBE_PATH%" (
+        echo [WARN] ffprobe not found at: %FFPROBE_PATH%
+        echo [INFO] Will try to use ffprobe from PATH
+        set "FFPROBE_PATH=ffprobe"
+    )
+)
+
+echo [INFO] Using ffprobe at: %FFPROBE_PATH%
 echo.
 
 REM Create output directory
