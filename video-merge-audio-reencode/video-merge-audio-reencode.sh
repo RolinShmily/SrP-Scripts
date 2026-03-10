@@ -1,418 +1,194 @@
 #!/bin/bash
 
-# 视频处理脚本 (Linux / macOS 版本)
-# 功能：将指定目录中的视频文件的所有音频轨道混音合并，视频用h.264重新编码
-# 作者：RoL1n
-# 许可证：MIT
-# 兼容性：Linux (GNU bash) / macOS (BSD bash)
+# Video Processing Script (Linux / macOS)
+# Merge audio tracks and re-encode video to H.264
+# Author: RoL1n
+# License: MIT
 
 set -e
 
-# 检测操作系统
-detect_os() {
-    case "$(uname -s)" in
-        Linux*)     OS="Linux";;
-        Darwin*)    OS="macOS";;
-        MINGW*|MSYS*|CYGWIN*) OS="Windows";;
-        *)          OS="Unknown";;
-    esac
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INPUT_DIR="$SCRIPT_DIR"
+OUTPUT_DIR="$SCRIPT_DIR/output"
 
-detect_os
+# Color output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-# 颜色输出 (macOS 终端兼容)
-if [ -t 1 ]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    NC='\033[0m' # No Color
-else
-    RED=''
-    GREEN=''
-    YELLOW=''
-    NC=''
+info() { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
+warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
+
+info "Input directory: $INPUT_DIR"
+info "Output directory: $OUTPUT_DIR"
+echo ""
+
+# Check dependencies
+if ! command -v ffmpeg &> /dev/null; then
+    echo "[ERROR] ffmpeg not found"
+    echo "Install: sudo apt install ffmpeg (Linux) or brew install ffmpeg (macOS)"
+    exit 1
 fi
 
-# 打印使用说明
-usage() {
-    echo "用法: $0 [输入目录] [输出目录]"
-    echo ""
-    echo "功能："
-    echo "  - 扫描输入目录中的 mkv/mov/mp4 视频文件"
-    echo "  - 将每个视频的所有音频轨道混音合并为一个音轨"
-    echo "  - 使用 h.264 重新编码视频（参考源视频质量）"
-    echo "  - 保持原视频的分辨率和帧率"
-    echo "  - 输出为 MP4 格式到指定目录"
-    echo ""
-    echo "使用方式："
-    echo "  1. 默认模式（推荐）"
-    echo "     将脚本放入视频文件夹中，直接运行："
-    echo "     $0"
-    echo "     自动处理当前目录及所有子文件夹，输出到 './output' 文件夹"
-    echo ""
-    echo "  2. 自定义路径模式"
-    echo "     指定输入和输出目录："
-    echo "     $0 /path/to/videos /path/to/output"
-    echo ""
-    echo "依赖："
-    echo "  - ffmpeg"
-    echo "  - ffprobe"
-    echo ""
-    echo "安装方法："
-    if [ "$OS" = "macOS" ]; then
-        echo "  macOS: brew install ffmpeg"
-    elif [ "$OS" = "Linux" ]; then
-        echo "  Arch: sudo pacman -S ffmpeg"
-        echo "  Ubuntu/Debian: sudo apt install ffmpeg"
-        echo "  Fedora: sudo dnf install ffmpeg"
-        echo "  openSUSE: sudo zypper install ffmpeg"
-    fi
-    echo ""
-    echo "示例："
-    echo "  # 默认模式：处理当前目录及子文件夹"
-    echo "  $0"
-    echo ""
-    echo "  # 自定义路径"
-    echo "  $0 ~/Videos/raw ~/Videos/processed"
+info "Dependencies OK"
+echo ""
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Find video files (excluding output folder)
+info "Scanning video files..."
+mapfile -t video_files < <(find "$INPUT_DIR" -type f \( -iname "*.mkv" -o -iname "*.mov" -o -iname "*.mp4" \) -not -path "*/output/*")
+
+total_files=${#video_files[@]}
+
+if [ $total_files -eq 0 ]; then
+    echo "[ERROR] No video files found"
     exit 1
-}
+fi
 
-# 打印信息
-info() {
-    printf "${GREEN}[INFO]${NC} %s\n" "$1"
-}
+info "Found $total_files video file(s)"
+echo ""
 
-warn() {
-    printf "${YELLOW}[WARN]${NC} %s\n" "$1"
-}
+# Detect hardware encoder
+hw_encoder="libx264"
+info "Detecting encoder..."
 
-error() {
-    printf "${RED}[ERROR]${NC} %s\n" "$1"
-    exit 1
-}
-
-# 检查依赖
-check_dependencies() {
-    local missing_deps=()
-
-    if ! command -v ffmpeg &> /dev/null; then
-        missing_deps+=("ffmpeg")
+if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_nvenc"; then
+    if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_nvenc -f null - 2>/dev/null; then
+        hw_encoder="h264_nvenc"
+        info "  Using: NVIDIA NVENC"
     fi
+fi
 
-    if ! command -v ffprobe &> /dev/null; then
-        missing_deps+=("ffprobe")
-    fi
-
-    if [ ${#missing_deps[@]} -ne 0 ]; then
-        echo ""
-        error "缺少依赖: ${missing_deps[*]}"
-    fi
-
-    info "依赖检查通过"
-}
-
-# 检测可用的硬件编码器
-detect_hw_encoder() {
-    local encoders=()
-    local found_encoder=""
-
-    info "检测硬件编码器..."
-
-    # 检测 NVIDIA NVENC (独显，优先级最高)
-    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_nvenc"; then
-        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_nvenc -f null - 2>/dev/null; then
-            encoders+=("h264_nvenc:NVIDIA NVENC (独显)")
-            found_encoder="h264_nvenc"
-        fi
-    fi
-
-    # 检测 AMD VCE/VCN (独显)
+if [ "$hw_encoder" = "libx264" ]; then
     if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_amf"; then
         if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_amf -f null - 2>/dev/null; then
-            encoders+=("h264_amf:AMD AMF (独显)")
-            [ -z "$found_encoder" ] && found_encoder="h264_amf"
+            hw_encoder="h264_amf"
+            info "  Using: AMD AMF"
         fi
     fi
+fi
 
-    # 检测 Intel Quick Sync (核显)
+if [ "$hw_encoder" = "libx264" ]; then
     if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_qsv"; then
         if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_qsv -f null - 2>/dev/null; then
-            encoders+=("h264_qsv:Intel Quick Sync (核显)")
-            [ -z "$found_encoder" ] && found_encoder="h264_qsv"
+            hw_encoder="h264_qsv"
+            info "  Using: Intel Quick Sync"
         fi
     fi
+fi
 
-    # 检测 VAAPI (Linux 核显)
-    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_vaapi"; then
-        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_vaapi -f null - 2>/dev/null; then
-            encoders+=("h264_vaapi:VAAPI (核显)")
-            [ -z "$found_encoder" ] && found_encoder="h264_vaapi"
-        fi
-    fi
+if [ "$hw_encoder" = "libx264" ]; then
+    info "  Using: CPU (libx264)"
+fi
 
-    # 检测 VideoToolbox (macOS 硬件加速)
-    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_videotoolbox"; then
-        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_videotoolbox -f null - 2>/dev/null; then
-            encoders+=("h264_videotoolbox:VideoToolbox (macOS)")
-            [ -z "$found_encoder" ] && found_encoder="h264_videotoolbox"
-        fi
-    fi
+echo ""
 
-    # CPU 软编码（最后备选）
-    encoders+=("libx264:CPU 软编码 (最慢)")
-    [ -z "$found_encoder" ] && found_encoder="libx264"
+# Process videos
+success_count=0
+fail_count=0
 
-    # 显示检测结果
-    for encoder in "${encoders[@]}"; do
-        IFS=':' read -r name desc <<< "$encoder"
-        if [ "$name" = "$found_encoder" ]; then
-            info "  ✓ $desc - [已选择]"
-        else
-            info "    $desc"
-        fi
-    done
+for video_file in "${video_files[@]}"; do
+    filename=$(basename "$video_file")
+    name_without_ext="${filename%.*}"
+    output_file="$OUTPUT_DIR/${name_without_ext}.mp4"
 
-    echo "$found_encoder"
-}
+    info "Processing: $filename"
 
-# 验证目录
-validate_directories() {
-    local input_dir="$1"
-    local output_dir="$2"
+    # Get audio count
+    audio_count=$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$video_file" | wc -l)
+    echo "  Audio tracks: $audio_count"
 
-    if [ ! -d "$input_dir" ]; then
-        error "输入目录不存在: $input_dir"
-    fi
-
-    # 创建输出目录（如果不存在）
-    mkdir -p "$output_dir"
-    info "输出目录: $output_dir"
-}
-
-# 获取视频文件的音频轨道数量
-get_audio_track_count() {
-    local video_file="$1"
-    local count
-
-    count=$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$video_file" | wc -l)
-
-    echo "$count"
-}
-
-# 获取视频的比特率（用于参考质量）
-get_video_bitrate() {
-    local video_file="$1"
-    local bitrate
-
-    bitrate=$(ffprobe -v error -select_streams v:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "$video_file" 2>/dev/null || echo "0")
-
-    # 如果获取不到，尝试从整体比特率估算
-    if [ "$bitrate" = "0" ] || [ -z "$bitrate" ]; then
-        local total_bitrate
+    # Get bitrate
+    source_bitrate=$(ffprobe -v error -select_streams v:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "$video_file" 2>/dev/null || echo "0")
+    if [ "$source_bitrate" = "0" ] || [ -z "$source_bitrate" ]; then
         total_bitrate=$(ffprobe -v error -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 "$video_file" 2>/dev/null || echo "0")
-        # 估算视频比特率为总比特率的 80%
-        bitrate=$((total_bitrate * 80 / 100))
+        source_bitrate=$((total_bitrate * 80 / 100))
     fi
 
-    echo "$bitrate"
-}
-
-# 处理单个视频文件
-process_video() {
-    local input_file="$1"
-    local output_file="$2"
-    local hw_encoder="$3"  # 硬件编码器
-    local filename
-    filename=$(basename "$input_file")
-
-    info "正在处理: $filename"
-
-    # 获取音频轨道数量
-    local audio_count
-    audio_count=$(get_audio_track_count "$input_file")
-
-    info "  检测到 $audio_count 个音频轨道"
-
-    # 获取源视频比特率作为参考
-    local source_bitrate
-    source_bitrate=$(get_video_bitrate "$input_file")
-
-    # 计算目标比特率（h.264 编码，保留 10% 余量）
-    local target_bitrate="0"
+    target_bitrate=0
     if [ "$source_bitrate" != "0" ] && [ -n "$source_bitrate" ]; then
-        target_bitrate=$((source_bitrate / 1000))  # 转换为 kbps
-        info "  源视频参考比特率: ${target_bitrate} kbps"
+        target_bitrate=$((source_bitrate / 1000))
+        echo "  Source bitrate: ${target_bitrate} kbps"
     fi
 
-    # 音频处理滤镜
-    local audio_filter=""
-    if [ "$audio_count" -gt 1 ]; then
-        # 多个音轨：使用 amix 滤镜混音
-        audio_filter="amix=inputs=$audio_count:duration=longest[a]"
-        info "  使用混音滤镜合并 $audio_count 个音轨"
+    # Build encoding parameters
+    crf_value="23"
+    if [ "$target_bitrate" != "0" ] && [ "$target_bitrate" -lt 2000 ]; then
+        crf_value="20"
     fi
 
-    # 构建 ffmpeg 参数（使用检测到的硬件编码器）
-    local video_params
-    local crf_value="23"
-
-    if [ "$target_bitrate" != "0" ]; then
-        # 如果源视频比特率较低，使用 CRF 模式；如果较高，使用比特率控制
-        if [ "$target_bitrate" -lt 2000 ]; then
-            # 低比特率视频，使用较低的 CRF 值
-            crf_value="20"
-        fi
-    fi
-
-    # 根据编码器类型设置参数
     case "$hw_encoder" in
         "h264_nvenc")
-            # NVIDIA NVENC 参数
-            video_params="-c:v h264_nvenc -preset p4 -rc vbr -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${target_bitrate*2}k -cq $crf_value"
+            if [ "$target_bitrate" -gt 0 ]; then
+                bufsize=$((target_bitrate * 2))
+                video_params="-c:v h264_nvenc -preset fast -rc vbr -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${bufsize}k -cq $crf_value"
+            else
+                video_params="-c:v h264_nvenc -preset fast -rc vbr -cq $crf_value"
+            fi
             ;;
         "h264_amf")
-            # AMD AMF 参数
-            video_params="-c:v h264_amf -quality speed -rc vbr -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${target_bitrate*2}k"
+            if [ "$target_bitrate" -gt 0 ]; then
+                bufsize=$((target_bitrate * 2))
+                video_params="-c:v h264_amf -quality speed -rc vbr -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${bufsize}k"
+            else
+                video_params="-c:v h264_amf -quality speed -rc vbr"
+            fi
             ;;
-        "h264_qsv"|"h264_vaapi")
-            # Intel Quick Sync / VAAPI 参数
-            video_params="-c:v $hw_encoder -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${target_bitrate*2}k -global_quality $crf_value"
-            ;;
-        "h264_videotoolbox")
-            # macOS VideoToolbox 参数
-            video_params="-c:v h264_videotoolbox -q $crf_value -b:v ${target_bitrate}k -maxrate ${target_bitrate}k"
+        "h264_qsv")
+            if [ "$target_bitrate" -gt 0 ]; then
+                bufsize=$((target_bitrate * 2))
+                video_params="-c:v h264_qsv -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${bufsize}k -global_quality $crf_value"
+            else
+                video_params="-c:v h264_qsv -preset medium -global_quality $crf_value"
+            fi
             ;;
         *)
-            # CPU 软编码（libx264）
-            video_params="-c:v libx264 -preset medium -crf $crf_value"
             if [ "$target_bitrate" -ge 2000 ]; then
-                local bufsize=$((target_bitrate * 2))
+                bufsize=$((target_bitrate * 2))
                 video_params="-c:v libx264 -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${bufsize}k"
+            else
+                video_params="-c:v libx264 -preset medium -crf $crf_value"
             fi
             ;;
     esac
 
-    # 音频参数
-    local audio_params="-c:a aac -b:a 192k -ac 2"
+    audio_params="-c:a aac -b:a 192k -ac 2"
 
-    # 执行转换
-    info "  开始编码..."
+    echo "  Encoding..."
 
-    # 直接执行 ffmpeg 命令，将进度输出到 stderr 以显示实时进度
-    if [ -n "$audio_filter" ]; then
-        # 有音频滤镜
-        ffmpeg -i "$input_file" \
-            -filter_complex "$audio_filter" \
-            -map 0:v \
-            -map "[a]" \
-            $video_params \
-            $audio_params \
+    # Execute conversion
+    if [ "$audio_count" -gt 1 ]; then
+        ffmpeg -i "$video_file" \
+            -filter_complex "amix=inputs=$audio_count:duration=longest[a]" \
+            -map 0:v -map "[a]" \
+            $video_params $audio_params \
             -movflags +faststart \
-            -y "$output_file" < /dev/null
+            -y "$output_file" </dev/null
     else
-        # 没有音频滤镜（单个音轨）
-        ffmpeg -i "$input_file" \
-            $video_params \
-            $audio_params \
+        ffmpeg -i "$video_file" \
+            $video_params $audio_params \
             -movflags +faststart \
-            -y "$output_file" < /dev/null
+            -y "$output_file" </dev/null
     fi
 
-    # 检查输出文件是否真的生成
+    # Check output
     if [ -f "$output_file" ] && [ -s "$output_file" ]; then
-        info "  完成: $(basename "$output_file")"
-        return 0
+        echo "  Done"
+        ((success_count++))
     else
-        warn "  处理失败: $filename（输出文件未生成）"
-        return 1
-    fi
-}
-
-# 主函数
-main() {
-    local input_dir=""
-    local output_dir=""
-
-    # 智能参数处理
-    if [ $# -eq 0 ]; then
-        # 默认模式：使用脚本所在目录
-        input_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        output_dir="${input_dir}/output"
-
-        info "默认模式：处理当前目录及子文件夹"
-        info "输入目录: $input_dir"
-        info "输出目录: $output_dir"
-        echo ""
-
-    elif [ $# -eq 2 ]; then
-        # 自定义路径模式
-        input_dir="$1"
-        output_dir="$2"
-
-        info "自定义路径模式"
-        info "输入目录: $input_dir"
-        info "输出目录: $output_dir"
-        echo ""
-
-    else
-        # 参数数量错误
-        usage
+        echo "  Failed"
+        ((fail_count++))
     fi
 
-    # 检查依赖
-    check_dependencies
-
-    # 检测硬件编码器
-    local hw_encoder
-    hw_encoder=$(detect_hw_encoder)
     echo ""
+done
 
-    # 验证目录
-    validate_directories "$input_dir" "$output_dir"
-
-    # 查找视频文件（递归所有子文件夹）
-    info "扫描视频文件..."
-    local video_files=()
-    while IFS= read -r -d '' file; do
-        video_files+=("$file")
-    done < <(find "$input_dir" -type f \( -iname "*.mkv" -o -iname "*.mov" -o -iname "*.mp4" \) -print0)
-
-    local total_files=${#video_files[@]}
-
-    if [ $total_files -eq 0 ]; then
-        error "未找到任何视频文件 (mkv/mov/mp4)"
-    fi
-
-    info "找到 $total_files 个视频文件"
-    echo ""
-
-    # 处理每个视频文件
-    local success_count=0
-    local fail_count=0
-
-    for video_file in "${video_files[@]}"; do
-        local filename
-        filename=$(basename "$video_file")
-        local name_without_ext="${filename%.*}"
-        local output_file="$output_dir/${name_without_ext}.mp4"
-
-        if process_video "$video_file" "$output_file" "$hw_encoder"; then
-            ((success_count++))
-        else
-            ((fail_count++))
-        fi
-
-        echo ""
-    done
-
-    # 总结
-    echo "==================================="
-    info "处理完成！"
-    echo "  成功: $success_count"
-    echo "  失败: $fail_count"
-    echo "  总计: $total_files"
-    echo "==================================="
-}
-
-# 运行主函数
-main "$@"
+# Summary
+echo "==================================="
+info "Processing completed!"
+echo "  Success: $success_count"
+echo "  Failed: $fail_count"
+echo "  Total: $total_files"
+echo "==================================="

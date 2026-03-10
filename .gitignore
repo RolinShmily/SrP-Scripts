@@ -2,6 +2,7 @@
 *.log
 log.txt
 logs/
+windowslog.txt
 
 # 临时文件
 *.tmp
