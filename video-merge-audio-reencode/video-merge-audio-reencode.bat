@@ -65,6 +65,7 @@ echo [INFO] Output directory: %OUTPUT_DIR%
 
 REM Find video files (recursive all subfolders)
 echo [INFO] Scanning video files...
+echo [DEBUG] Input directory: %INPUT_DIR%
 
 set COUNT=0
 for /r "%INPUT_DIR%" %%F in (*.mkv *.mov *.mp4) do (
@@ -73,6 +74,12 @@ for /r "%INPUT_DIR%" %%F in (*.mkv *.mov *.mp4) do (
 
 if %COUNT%==0 (
     echo [ERROR] No video files found (mkv/mov/mp4)
+    echo [DEBUG] This might be due to:
+    echo   - Path contains special characters
+    echo   - No video files in the directory
+    echo   - Permission issues
+    echo [DEBUG] Current directory: %CD%
+    echo [DEBUG] Script location: %~dp0
     pause
     exit /b 1
 )

@@ -207,7 +207,7 @@ process_video() {
     # 执行转换
     info "  开始编码..."
 
-    # 直接执行 ffmpeg 命令，使用数组避免空格问题
+    # 直接执行 ffmpeg 命令，将进度输出到 stderr 以显示实时进度
     if [ -n "$audio_filter" ]; then
         # 有音频滤镜
         ffmpeg -i "$input_file" \
@@ -217,14 +217,14 @@ process_video() {
             $video_params \
             $audio_params \
             -movflags +faststart \
-            -y "$output_file" 2>&1 | grep -E "(frame=|time=)" || true
+            -y "$output_file" < /dev/null
     else
         # 没有音频滤镜（单个音轨）
         ffmpeg -i "$input_file" \
             $video_params \
             $audio_params \
             -movflags +faststart \
-            -y "$output_file" 2>&1 | grep -E "(frame=|time=)" || true
+            -y "$output_file" < /dev/null
     fi
 
     # 检查输出文件是否真的生成
