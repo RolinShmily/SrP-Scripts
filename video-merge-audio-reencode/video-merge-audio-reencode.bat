@@ -42,14 +42,14 @@ echo.
 REM Create cache directory
 if not exist "%CACHE_DIR%" mkdir "%CACHE_DIR%"
 
-REM Download ffmpeg using PowerShell
+REM Download ffmpeg using curl
 set "DOWNLOAD_URL=https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
 set "ZIP_FILE=%CACHE_DIR%\ffmpeg.zip"
 
 echo Downloading from: %DOWNLOAD_URL%
 echo.
 
-powershell -Command "& {Invoke-WebRequest -Uri '%DOWNLOAD_URL%' -OutFile '%ZIP_FILE%' -UseBasicParsing}"
+curl -L -o "%ZIP_FILE%" "%DOWNLOAD_URL%"
 if errorlevel 1 (
     echo.
     echo [ERROR] Failed to download ffmpeg
