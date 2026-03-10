@@ -111,6 +111,70 @@ check_dependencies() {
     info "依赖检查通过"
 }
 
+# 检测可用的硬件编码器
+detect_hw_encoder() {
+    local encoders=()
+    local found_encoder=""
+
+    info "检测硬件编码器..."
+
+    # 检测 NVIDIA NVENC (独显，优先级最高)
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_nvenc"; then
+        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_nvenc -f null - 2>/dev/null; then
+            encoders+=("h264_nvenc:NVIDIA NVENC (独显)")
+            found_encoder="h264_nvenc"
+        fi
+    fi
+
+    # 检测 AMD VCE/VCN (独显)
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_amf"; then
+        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_amf -f null - 2>/dev/null; then
+            encoders+=("h264_amf:AMD AMF (独显)")
+            [ -z "$found_encoder" ] && found_encoder="h264_amf"
+        fi
+    fi
+
+    # 检测 Intel Quick Sync (核显)
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_qsv"; then
+        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_qsv -f null - 2>/dev/null; then
+            encoders+=("h264_qsv:Intel Quick Sync (核显)")
+            [ -z "$found_encoder" ] && found_encoder="h264_qsv"
+        fi
+    fi
+
+    # 检测 VAAPI (Linux 核显)
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_vaapi"; then
+        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_vaapi -f null - 2>/dev/null; then
+            encoders+=("h264_vaapi:VAAPI (核显)")
+            [ -z "$found_encoder" ] && found_encoder="h264_vaapi"
+        fi
+    fi
+
+    # 检测 VideoToolbox (macOS 硬件加速)
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_videotoolbox"; then
+        if ffmpeg -f lavfi -i nullsrc=s=100x100:d=1 -t 1 -c:v h264_videotoolbox -f null - 2>/dev/null; then
+            encoders+=("h264_videotoolbox:VideoToolbox (macOS)")
+            [ -z "$found_encoder" ] && found_encoder="h264_videotoolbox"
+        fi
+    fi
+
+    # CPU 软编码（最后备选）
+    encoders+=("libx264:CPU 软编码 (最慢)")
+    [ -z "$found_encoder" ] && found_encoder="libx264"
+
+    # 显示检测结果
+    for encoder in "${encoders[@]}"; do
+        IFS=':' read -r name desc <<< "$encoder"
+        if [ "$name" = "$found_encoder" ]; then
+            info "  ✓ $desc - [已选择]"
+        else
+            info "    $desc"
+        fi
+    done
+
+    echo "$found_encoder"
+}
+
 # 验证目录
 validate_directories() {
     local input_dir="$1"
@@ -157,6 +221,7 @@ get_video_bitrate() {
 process_video() {
     local input_file="$1"
     local output_file="$2"
+    local hw_encoder="$3"  # 硬件编码器
     local filename
     filename=$(basename "$input_file")
 
@@ -187,19 +252,45 @@ process_video() {
         info "  使用混音滤镜合并 $audio_count 个音轨"
     fi
 
-    # 构建 ffmpeg 参数
-    local video_params="-c:v libx264 -preset medium -crf 23"
+    # 构建 ffmpeg 参数（使用检测到的硬件编码器）
+    local video_params
+    local crf_value="23"
+
     if [ "$target_bitrate" != "0" ]; then
         # 如果源视频比特率较低，使用 CRF 模式；如果较高，使用比特率控制
         if [ "$target_bitrate" -lt 2000 ]; then
             # 低比特率视频，使用较低的 CRF 值
-            video_params="-c:v libx264 -preset medium -crf 20"
-        else
-            # 高比特率视频，使用两阶段编码
-            local bufsize=$((target_bitrate * 2))
-            video_params="-c:v libx264 -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${bufsize}k"
+            crf_value="20"
         fi
     fi
+
+    # 根据编码器类型设置参数
+    case "$hw_encoder" in
+        "h264_nvenc")
+            # NVIDIA NVENC 参数
+            video_params="-c:v h264_nvenc -preset p4 -rc vbr -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${target_bitrate*2}k -cq $crf_value"
+            ;;
+        "h264_amf")
+            # AMD AMF 参数
+            video_params="-c:v h264_amf -quality speed -rc vbr -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${target_bitrate*2}k"
+            ;;
+        "h264_qsv"|"h264_vaapi")
+            # Intel Quick Sync / VAAPI 参数
+            video_params="-c:v $hw_encoder -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${target_bitrate*2}k -global_quality $crf_value"
+            ;;
+        "h264_videotoolbox")
+            # macOS VideoToolbox 参数
+            video_params="-c:v h264_videotoolbox -q $crf_value -b:v ${target_bitrate}k -maxrate ${target_bitrate}k"
+            ;;
+        *)
+            # CPU 软编码（libx264）
+            video_params="-c:v libx264 -preset medium -crf $crf_value"
+            if [ "$target_bitrate" -ge 2000 ]; then
+                local bufsize=$((target_bitrate * 2))
+                video_params="-c:v libx264 -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${bufsize}k"
+            fi
+            ;;
+    esac
 
     # 音频参数
     local audio_params="-c:a aac -b:a 192k -ac 2"
@@ -271,6 +362,11 @@ main() {
     # 检查依赖
     check_dependencies
 
+    # 检测硬件编码器
+    local hw_encoder
+    hw_encoder=$(detect_hw_encoder)
+    echo ""
+
     # 验证目录
     validate_directories "$input_dir" "$output_dir"
 
@@ -300,7 +396,7 @@ main() {
         local name_without_ext="${filename%.*}"
         local output_file="$output_dir/${name_without_ext}.mp4"
 
-        if process_video "$video_file" "$output_file"; then
+        if process_video "$video_file" "$output_file" "$hw_encoder"; then
             ((success_count++))
         else
             ((fail_count++))
