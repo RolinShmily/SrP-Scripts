@@ -18,15 +18,36 @@ chmod +x video-merge-audio-reencode.sh
 ./video-merge-audio-reencode.sh
 ```
 
-### Windows PowerShell
+### Windows (WSL - 推荐) ⭐
+
+使用 WSL 运行 bash 脚本，完美支持中文路径和空格！
+
+```bash
+# 1️⃣ 安装 WSL（如果还没安装）
+wsl --install
+
+# 2️⃣ 在 WSL 中安装 ffmpeg
+sudo apt update && sudo apt install ffmpeg
+
+# 3️⃣ 下载并运行脚本
+cd "/mnt/e/你的视频文件夹"
+curl -LJO https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.sh
+chmod +x video-merge-audio-reencode.sh
+./video-merge-audio-reencode.sh
+```
+
+### Windows (PowerShell)
 
 ```powershell
 # 1️⃣ 下载脚本到您的视频文件夹
-cd C:\path\to\your\videos
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.bat" -OutFile "video-merge-audio-reencode.bat"
+cd "E:\你的视频文件夹"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.ps1" -OutFile "video-merge-audio-reencode.ps1"
 
-# 2️⃣ 直接运行
-.\video-merge-audio-reencode.bat
+# 2️⃣ 设置执行策略（首次使用）
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# 3️⃣ 运行脚本
+.\video-merge-audio-reencode.ps1
 ```
 
 就这么简单！处理后的视频会自动保存在 `output` 文件夹中。✨
@@ -53,8 +74,9 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/RolinShmily/SrP-Script
 ## 系统要求
 
 ### Windows
-- Windows 7 或更高版本
-- [FFmpeg](https://www.gyan.dev/ffmpeg/builds/) (需要添加到 PATH 环境变量)
+- **推荐：** Windows 10/11 + WSL (Windows Subsystem for Linux)
+- **备选：** PowerShell 5.1+
+- FFmpeg (WSL: `sudo apt install ffmpeg` / Windows: 添加到 PATH)
 
 ### Linux
 - 任何主流 Linux 发行版
@@ -67,10 +89,21 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/RolinShmily/SrP-Script
 ## 安装 FFmpeg
 
 ### Windows
+
+#### 方案一：WSL (推荐)
+```powershell
+# 安装 WSL
+wsl --install
+
+# 在 WSL 中安装 ffmpeg
+sudo apt update && sudo apt install ffmpeg
+```
+
+#### 方案二：PowerShell
 1. 下载 FFmpeg：[https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/builds/)
 2. 解压到目录（如 `C:\ffmpeg`）
 3. 将 `C:\ffmpeg\bin` 添加到系统 PATH 环境变量
-4. 重启命令提示符，验证：`ffmpeg -version`
+4. 重启 PowerShell，验证：`ffmpeg -version`
 
 ### Linux
 ```bash
@@ -102,12 +135,21 @@ brew install ffmpeg
 
 将脚本放入包含视频文件的文件夹中，直接运行：
 
+#### Linux / macOS
 ```bash
-# Linux/macOS
 ./video-merge-audio-reencode.sh
+```
 
-# Windows
-video-merge-audio-reencode.bat
+#### Windows (WSL)
+```bash
+# 在 WSL 终端中运行
+cd "/mnt/e/你的视频文件夹"
+./video-merge-audio-reencode.sh
+```
+
+#### Windows (PowerShell)
+```powershell
+.\video-merge-audio-reencode.ps1
 ```
 
 **特点：**
