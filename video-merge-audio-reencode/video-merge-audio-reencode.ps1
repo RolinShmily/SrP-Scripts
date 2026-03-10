@@ -12,19 +12,10 @@ try {
     # Ignore errors in older PowerShell versions
 }
 
-# Script parameters (with validation)
-if ($PSVersionTable.PSVersion.Major -lt 3) {
-    Write-Host "[WARNING] PowerShell version 3.0 or higher recommended" -ForegroundColor Yellow
-    Write-Host "[INFO] Current version: $($PSVersionTable.PSVersion)" -ForegroundColor Yellow
-}
-
-param(
-    [Parameter(Mandatory=$false)]
-    [string]$InputDir = "",
-
-    [Parameter(Mandatory=$false)]
-    [string]$OutputDir = ""
-)
+# Script parameters
+# Note: For compatibility with PowerShell 2.0, parameters are handled differently
+$script:InputDir = ""
+$script:OutputDir = ""
 
 # Show usage
 function Show-Usage {
@@ -231,22 +222,32 @@ function Process-Video {
 
 # ========== Main Program ==========
 
+# Parse command line arguments
+if ($args.Count -gt 0) {
+    if ($args.Count -ge 1) {
+        $script:InputDir = $args[0]
+    }
+    if ($args.Count -ge 2) {
+        $script:OutputDir = $args[1]
+    }
+}
+
 # Smart parameter handling
-if ([string]::IsNullOrEmpty($InputDir) -and [string]::IsNullOrEmpty($OutputDir)) {
+if ([string]::IsNullOrEmpty($script:InputDir) -and [string]::IsNullOrEmpty($script:OutputDir)) {
     # Default mode: use script directory
-    $InputDir = Split-Path -Parent $PSScriptRoot
-    $OutputDir = Join-Path $InputDir "output"
+    $script:InputDir = Split-Path -Parent $PSScriptRoot
+    $script:OutputDir = Join-Path $script:InputDir "output"
 
     Write-Host "[INFO] Default mode: Process current directory and subfolders" -ForegroundColor Green
-    Write-Host "[INFO] Input directory: $InputDir"
-    Write-Host "[INFO] Output directory: $OutputDir"
+    Write-Host "[INFO] Input directory: $script:InputDir"
+    Write-Host "[INFO] Output directory: $script:OutputDir"
     Write-Host ""
-} elseif ([string]::IsNullOrEmpty($InputDir) -or [string]::IsNullOrEmpty($OutputDir)) {
+} elseif ([string]::IsNullOrEmpty($script:InputDir) -or [string]::IsNullOrEmpty($script:OutputDir)) {
     Show-Usage
 } else {
     Write-Host "[INFO] Custom path mode" -ForegroundColor Green
-    Write-Host "[INFO] Input directory: $InputDir"
-    Write-Host "[INFO] Output directory: $OutputDir"
+    Write-Host "[INFO] Input directory: $script:InputDir"
+    Write-Host "[INFO] Output directory: $script:OutputDir"
     Write-Host ""
 }
 
@@ -258,22 +259,22 @@ $hwEncoder = Get-HardwareEncoder
 Write-Host ""
 
 # Validate input directory
-if (-not (Test-Path $InputDir)) {
-    Write-Host "[ERROR] Input directory does not exist: $InputDir" -ForegroundColor Red
+if (-not (Test-Path $script:InputDir)) {
+    Write-Host "[ERROR] Input directory does not exist: $script:InputDir" -ForegroundColor Red
     Read-Host "Press Enter to exit"
     exit 1
 }
 
 # Create output directory
-if (-not (Test-Path $OutputDir)) {
-    New-Item -ItemType Directory -Path $OutputDir | Out-Null
+if (-not (Test-Path $script:OutputDir)) {
+    New-Item -ItemType Directory -Path $script:OutputDir | Out-Null
 }
-Write-Host "[INFO] Output directory: $OutputDir" -ForegroundColor Green
+Write-Host "[INFO] Output directory: $script:OutputDir" -ForegroundColor Green
 
 # Find video files (recursive all subfolders)
 Write-Host "[INFO] Scanning video files..." -ForegroundColor Green
 
-$videoFiles = Get-ChildItem -Path $InputDir -Recurse -Include *.mkv, *.mov, *.mp4 -File | Where-Object { $_.DirectoryName -notlike "*\output" }
+$videoFiles = Get-ChildItem -Path $script:InputDir -Recurse -Include *.mkv, *.mov, *.mp4 -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer -eq $false }
 
 $totalFiles = $videoFiles.Count
 
@@ -292,7 +293,7 @@ $failCount = 0
 
 foreach ($videoFile in $videoFiles) {
     $nameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($videoFile.Name)
-    $outputFile = Join-Path $OutputDir "$nameWithoutExt.mp4"
+    $outputFile = Join-Path $script:OutputDir "$nameWithoutExt.mp4"
 
     if (Process-Video -InputFile $videoFile.FullName -OutputFile $outputFile -Encoder $hwEncoder) {
         $successCount++
