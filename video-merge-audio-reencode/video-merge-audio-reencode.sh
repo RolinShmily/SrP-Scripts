@@ -179,9 +179,6 @@ process_video() {
         info "  源视频参考比特率: ${target_bitrate} kbps"
     fi
 
-    # 构建 ffmpeg 命令
-    local ffmpeg_cmd="ffmpeg -i \"$input_file\""
-
     # 音频处理滤镜
     local audio_filter=""
     if [ "$audio_count" -gt 1 ]; then
@@ -207,22 +204,35 @@ process_video() {
     # 音频参数
     local audio_params="-c:a aac -b:a 192k -ac 2"
 
-    # 完整的 ffmpeg 命令
-    if [ -n "$audio_filter" ]; then
-        # 有音频滤镜
-        ffmpeg_cmd="$ffmpeg_cmd -filter_complex \"$audio_filter\" -map 0:v -map \"[a]\" $video_params $audio_params -movflags +faststart \"$output_file\""
-    else
-        # 没有音频滤镜（单个音轨）
-        ffmpeg_cmd="$ffmpeg_cmd -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 192k -ac 2 -movflags +faststart \"$output_file\""
-    fi
-
     # 执行转换
     info "  开始编码..."
-    if eval "$ffmpeg_cmd" -y 2>&1 | grep -E "(frame=|time=)" || true; then
+
+    # 直接执行 ffmpeg 命令，使用数组避免空格问题
+    if [ -n "$audio_filter" ]; then
+        # 有音频滤镜
+        ffmpeg -i "$input_file" \
+            -filter_complex "$audio_filter" \
+            -map 0:v \
+            -map "[a]" \
+            $video_params \
+            $audio_params \
+            -movflags +faststart \
+            -y "$output_file" 2>&1 | grep -E "(frame=|time=)" || true
+    else
+        # 没有音频滤镜（单个音轨）
+        ffmpeg -i "$input_file" \
+            $video_params \
+            $audio_params \
+            -movflags +faststart \
+            -y "$output_file" 2>&1 | grep -E "(frame=|time=)" || true
+    fi
+
+    # 检查输出文件是否真的生成
+    if [ -f "$output_file" ] && [ -s "$output_file" ]; then
         info "  完成: $(basename "$output_file")"
         return 0
     else
-        warn "  处理失败: $filename"
+        warn "  处理失败: $filename（输出文件未生成）"
         return 1
     fi
 }
