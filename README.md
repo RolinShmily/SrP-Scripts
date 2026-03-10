@@ -20,9 +20,12 @@
 - ⚡ 自动使用最优硬件编码器（10-50倍加速）
 - 🎬 输出标准 H.264 + MP4 格式
 - 📐 智能参考源视频质量
+- 📥 **Windows 首次运行自动下载 ffmpeg** ✨
 
 **依赖：**
-- ⚙️ FFmpeg（深度基于 FFmpeg）
+- ⚙️ FFmpeg
+  - **Windows**: 自动下载（首次运行时）
+  - **Linux/macOS**: `sudo apt install ffmpeg` 或 `brew install ffmpeg`
 
 **平台支持：**
 - 💻 **Windows**: `.bat` 脚本

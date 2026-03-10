@@ -14,17 +14,82 @@ echo.
 
 REM Check dependencies
 echo Checking ffmpeg...
+
+REM Try to find ffmpeg in system PATH
+set "FFMPEG_PATH="
 where ffmpeg >nul 2>&1
+if not errorlevel 1 (
+    set "FFMPEG_PATH=ffmpeg"
+    goto :ffmpeg_found
+)
+
+REM Check local cache directory
+set "CACHE_DIR=%USERPROFILE%\.srp-scripts\ffmpeg"
+set "LOCAL_FFMPEG=%CACHE_DIR%\ffmpeg.exe"
+
+if exist "%LOCAL_FFMPEG%" (
+    set "FFMPEG_PATH=%LOCAL_FFMPEG%"
+    goto :ffmpeg_found
+)
+
+REM Download ffmpeg automatically
+echo ffmpeg not found in system PATH or local cache
+echo.
+echo [INFO] Downloading ffmpeg automatically...
+echo This will only happen once. Future runs will use the cached version.
+echo.
+
+REM Create cache directory
+if not exist "%CACHE_DIR%" mkdir "%CACHE_DIR%"
+
+REM Download ffmpeg using PowerShell
+set "DOWNLOAD_URL=https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+set "ZIP_FILE=%CACHE_DIR%\ffmpeg.zip"
+
+echo Downloading from: %DOWNLOAD_URL%
+echo.
+
+powershell -Command "& {Invoke-WebRequest -Uri '%DOWNLOAD_URL%' -OutFile '%ZIP_FILE%' -UseBasicParsing}"
 if errorlevel 1 (
     echo.
-    echo [ERROR] ffmpeg not found
-    echo Please install ffmpeg and add to PATH
-    echo Download: https://www.gyan.dev/ffmpeg/builds/
+    echo [ERROR] Failed to download ffmpeg
+    echo Please check your internet connection or download manually:
+    echo %DOWNLOAD_URL%
     echo.
     pause
     exit /b 1
 )
+
+echo Download completed. Extracting...
+echo.
+
+REM Extract only ffmpeg.exe using PowerShell
+powershell -Command "& {Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('%ZIP_FILE%', '%CACHE_DIR%'); $folder = Get-ChildItem '%CACHE_DIR%' -Directory | Select-Object -First 1; Move-Item -Path \"$($folder.FullName)\*\" -Destination '%CACHE_DIR%' -Force; Remove-Item -Path \"$($folder.FullName)\" -Force; Remove-Item '%ZIP_FILE%' -Force}"
+
+if not exist "%LOCAL_FFMPEG%" (
+    echo.
+    echo [ERROR] Failed to extract ffmpeg
+    echo.
+    pause
+    exit /b 1
+)
+
+echo ffmpeg installed successfully to: %CACHE_DIR%
+echo.
+echo [INFO] You can delete this cache anytime to reclaim space:
+echo   %CACHE_DIR%
+echo.
+
+:ffmpeg_found
 echo [OK] ffmpeg found
+
+REM Set ffprobe path based on ffmpeg location
+set "FFPROBE_PATH="
+if "%FFMPEG_PATH%"=="ffmpeg" (
+    set "FFPROBE_PATH=ffprobe"
+) else (
+    set "FFPROBE_PATH=%FFMPEG_PATH:\ffmpeg.exe=\ffprobe.exe%"
+)
 echo.
 
 REM Create output directory
@@ -57,14 +122,14 @@ REM Detect encoder
 set "HW_ENCODER=libx264"
 echo Detecting encoder...
 
-ffmpeg -hide_banner -encoders 2>nul | findstr /C:"h264_nvenc" >nul
+"%FFMPEG_PATH%" -hide_banner -encoders 2>nul | findstr /C:"h264_nvenc" >nul
 if !errorlevel! equ 0 (
     set "HW_ENCODER=h264_nvenc"
     echo   Using: NVIDIA NVENC
 )
 
 if "!HW_ENCODER!"=="libx264" (
-    ffmpeg -hide_banner -encoders 2>nul | findstr /C:"h264_amf" >nul
+    "%FFMPEG_PATH%" -hide_banner -encoders 2>nul | findstr /C:"h264_amf" >nul
     if !errorlevel! equ 0 (
         set "HW_ENCODER=h264_amf"
         echo   Using: AMD AMF
@@ -72,7 +137,7 @@ if "!HW_ENCODER!"=="libx264" (
 )
 
 if "!HW_ENCODER!"=="libx264" (
-    ffmpeg -hide_banner -encoders 2>nul | findstr /C:"h264_qsv" >nul
+    "%FFMPEG_PATH%" -hide_banner -encoders 2>nul | findstr /C:"h264_qsv" >nul
     if !errorlevel! equ 0 (
         set "HW_ENCODER=h264_qsv"
         echo   Using: Intel Quick Sync
@@ -94,13 +159,13 @@ for %%F in (*.mkv *.mov *.mp4) do (
     echo [INFO] Processing: !FILENAME!
 
     REM Get audio count
-    ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "!INPUT_FILE!" 2>nul > "%TEMP%\audio_tmp.txt"
+    "%FFPROBE_PATH%" -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "!INPUT_FILE!" 2>nul > "%TEMP%\audio_tmp.txt"
     for /f %%A in ('type "%TEMP%\audio_tmp.txt" ^| find /c /v ""') do set AUDIO_COUNT=%%A
     del "%TEMP%\audio_tmp.txt" 2>nul
     echo   Audio tracks: !AUDIO_COUNT!
 
     REM Get bitrate
-    ffprobe -v error -select_streams v:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "!INPUT_FILE!" 2>nul > "%TEMP%\bitrate_tmp.txt"
+    "%FFPROBE_PATH%" -v error -select_streams v:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "!INPUT_FILE!" 2>nul > "%TEMP%\bitrate_tmp.txt"
     set /p SOURCE_BITRATE=<"%TEMP%\bitrate_tmp.txt"
     del "%TEMP%\bitrate_tmp.txt" 2>nul
     if "!SOURCE_BITRATE!"=="" set SOURCE_BITRATE=0
@@ -155,9 +220,9 @@ for %%F in (*.mkv *.mov *.mp4) do (
 
     REM Execute ffmpeg with output visible for debugging
     if !AUDIO_COUNT! GTR 1 (
-        ffmpeg -i "!INPUT_FILE!" -filter_complex "amix=inputs=!AUDIO_COUNT!:duration=longest[a]" -map 0:v -map "[a]" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
+        "%FFMPEG_PATH%" -i "!INPUT_FILE!" -filter_complex "amix=inputs=!AUDIO_COUNT!:duration=longest[a]" -map 0:v -map "[a]" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
     ) else (
-        ffmpeg -i "!INPUT_FILE!" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
+        "%FFMPEG_PATH%" -i "!INPUT_FILE!" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
     )
 
     REM Check output
@@ -189,13 +254,13 @@ for /d %%D in (*) do (
             echo [INFO] Processing: %%D\!FILENAME!
 
             REM Get audio count
-            ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "!INPUT_FILE!" 2>nul > "%TEMP%\audio_tmp.txt"
+            "%FFPROBE_PATH%" -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "!INPUT_FILE!" 2>nul > "%TEMP%\audio_tmp.txt"
             for /f %%A in ('type "%TEMP%\audio_tmp.txt" ^| find /c /v ""') do set AUDIO_COUNT=%%A
             del "%TEMP%\audio_tmp.txt" 2>nul
             echo   Audio tracks: !AUDIO_COUNT!
 
             REM Get bitrate
-            ffprobe -v error -select_streams v:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "!INPUT_FILE!" 2>nul > "%TEMP%\bitrate_tmp.txt"
+            "%FFPROBE_PATH%" -v error -select_streams v:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "!INPUT_FILE!" 2>nul > "%TEMP%\bitrate_tmp.txt"
             set /p SOURCE_BITRATE=<"%TEMP%\bitrate_tmp.txt"
             del "%TEMP%\bitrate_tmp.txt" 2>nul
             if "!SOURCE_BITRATE!"=="" set SOURCE_BITRATE=0
@@ -250,9 +315,9 @@ for /d %%D in (*) do (
 
             REM Execute ffmpeg
             if !AUDIO_COUNT! GTR 1 (
-                ffmpeg -i "!INPUT_FILE!" -filter_complex "amix=inputs=!AUDIO_COUNT!:duration=longest[a]" -map 0:v -map "[a]" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
+                "%FFMPEG_PATH%" -i "!INPUT_FILE!" -filter_complex "amix=inputs=!AUDIO_COUNT!:duration=longest[a]" -map 0:v -map "[a]" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
             ) else (
-                ffmpeg -i "!INPUT_FILE!" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
+                "%FFMPEG_PATH%" -i "!INPUT_FILE!" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!"
             )
 
             REM Check output

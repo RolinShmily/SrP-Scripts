@@ -24,7 +24,43 @@ chmod +x video-merge-audio-reencode.sh
 ./video-merge-audio-reencode.sh
 ```
 
-### Windows (推荐 WSL)
+### Windows (Batch - 推荐原生)
+
+**✨ 新特性：自动下载 ffmpeg**
+
+```batch
+REM 1. 下载脚本到视频文件夹
+REM 访问：https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.bat
+REM 保存为：video-merge-audio-reencode.bat
+
+REM 2. 双击运行
+REM 首次运行会自动下载 ffmpeg（约 80MB），之后会缓存到本地
+video-merge-audio-reencode.bat
+```
+
+**ffmpeg 自动管理：**
+- 📥 首次运行自动下载最新版本
+- 💾 缓存位置：`%USERPROFILE%\.srp-scripts\ffmpeg\`
+- 🔄 后续运行直接使用缓存，无需重新下载
+- 🗑️ 随时可以删除缓存目录释放空间（下次运行会重新下载）
+
+**可选：手动安装 ffmpeg**
+
+如果你更喜欢使用系统级 ffmpeg：
+
+```batch
+REM 使用包管理器安装（可选）
+REM winget
+winget install ffmpeg
+
+REM Chocolatey
+choco install ffmpeg
+
+REM Scoop
+scoop install ffmpeg
+```
+
+### Windows (WSL)
 
 ```bash
 # 1. 在 WSL 中安装 ffmpeg
@@ -35,17 +71,6 @@ cd "/mnt/e/你的视频文件夹"
 curl -LJO https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.sh
 chmod +x video-merge-audio-reencode.sh
 ./video-merge-audio-reencode.sh
-```
-
-### Windows (Batch)
-
-```batch
-REM 1. 下载脚本到视频文件夹
-REM 访问：https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.bat
-REM 保存为：video-merge-audio-reencode.bat
-
-REM 2. 双击运行
-video-merge-audio-reencode.bat
 ```
 
 ## 硬件加速配置
