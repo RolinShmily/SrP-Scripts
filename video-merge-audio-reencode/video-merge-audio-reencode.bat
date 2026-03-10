@@ -1,18 +1,15 @@
 @echo off
-REM 视频处理脚本 (Windows 版本)
-REM 功能：将指定目录中的视频文件的所有音频轨道混音合并，视频用h.264重新编码
-REM 作者：RoL1n
-REM 许可证：MIT
-
-REM 切换到 UTF-8 编码以支持中文显示
-chcp 65001 >nul 2>&1
+REM Video Processing Script (Windows)
+REM Merge all audio tracks and re-encode video to H.264
+REM Author: RoL1n
+REM License: MIT
 
 setlocal enabledelayedexpansion
 
-REM 检查参数并设置模式
+REM Check parameters and set mode
 if "%~1"=="" (
     if "%~2"=="" (
-        REM 默认模式：使用脚本所在目录
+        REM Default mode: use script directory
         set "INPUT_DIR=%~dp0"
         set "OUTPUT_DIR=%~dp0output"
         set "MODE=DEFAULT"
@@ -23,49 +20,51 @@ if "%~1"=="" (
     if "%~2"=="" (
         goto :usage
     ) else (
-        REM 自定义路径模式
+        REM Custom path mode
         set "INPUT_DIR=%~1"
         set "OUTPUT_DIR=%~2"
         set "MODE=CUSTOM"
     )
 )
 
-REM 显示模式信息
+REM Display mode info
 if "%MODE%"=="DEFAULT" (
-    echo [信息] 默认模式：处理当前目录及子文件夹
-    echo [信息] 输入目录: %INPUT_DIR%
-    echo [信息] 输出目录: %OUTPUT_DIR%
+    echo [INFO] Default mode: Process current directory and subfolders
+    echo [INFO] Input directory: %INPUT_DIR%
+    echo [INFO] Output directory: %OUTPUT_DIR%
     echo.
 ) else (
-    echo [信息] 自定义路径模式
-    echo [信息] 输入目录: %INPUT_DIR%
-    echo [信息] 输出目录: %OUTPUT_DIR%
+    echo [INFO] Custom path mode
+    echo [INFO] Input directory: %INPUT_DIR%
+    echo [INFO] Output directory: %OUTPUT_DIR%
     echo.
 )
 
-REM 检查依赖
+REM Check dependencies
 where ffmpeg >nul 2>&1
 if errorlevel 1 (
-    echo [错误] 未找到 ffmpeg
-    echo 请先安装 ffmpeg 并添加到 PATH 环境变量
-    echo 下载地址: https://www.gyan.dev/ffmpeg/builds/
+    echo [ERROR] ffmpeg not found
+    echo Please install ffmpeg and add to PATH environment variable
+    echo Download: https://www.gyan.dev/ffmpeg/builds/
+    pause
     exit /b 1
 )
 
-echo [信息] 依赖检查通过
+echo [INFO] Dependencies check passed
 
-REM 验证输入目录
+REM Validate input directory
 if not exist "%INPUT_DIR%" (
-    echo [错误] 输入目录不存在: %INPUT_DIR%
+    echo [ERROR] Input directory does not exist: %INPUT_DIR%
+    pause
     exit /b 1
 )
 
-REM 创建输出目录
+REM Create output directory
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
-echo [信息] 输出目录: %OUTPUT_DIR%
+echo [INFO] Output directory: %OUTPUT_DIR%
 
-REM 查找视频文件（递归所有子文件夹）
-echo [信息] 扫描视频文件...
+REM Find video files (recursive all subfolders)
+echo [INFO] Scanning video files...
 
 set COUNT=0
 for /r "%INPUT_DIR%" %%F in (*.mkv *.mov *.mp4) do (
@@ -73,14 +72,15 @@ for /r "%INPUT_DIR%" %%F in (*.mkv *.mov *.mp4) do (
 )
 
 if %COUNT%==0 (
-    echo [错误] 未找到任何视频文件 (mkv/mov/mp4)
+    echo [ERROR] No video files found (mkv/mov/mp4)
+    pause
     exit /b 1
 )
 
-echo [信息] 找到 %COUNT% 个视频文件
+echo [INFO] Found %COUNT% video file(s)
 echo.
 
-REM 处理每个视频文件
+REM Process each video file
 set SUCCESS=0
 set FAIL=0
 
@@ -88,28 +88,28 @@ for /r "%INPUT_DIR%" %%F in (*.mkv *.mov *.mp4) do (
     set "INPUT_FILE=%%F"
     set "FILENAME=%%~nxF"
 
-    echo [信息] 正在处理: !FILENAME!
+    echo [INFO] Processing: !FILENAME!
 
-    REM 获取输出文件名（统一为 .mp4）
+    REM Get output filename (uniform as .mp4)
     set "OUTPUT_FILE=%OUTPUT_DIR%\%%~nF.mp4"
 
-    REM 检测音频轨道数量
+    REM Detect audio track count
     for /f "tokens=*" %%A in ('ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "!INPUT_FILE!" 2^>nul ^| find /c /v ""') do set AUDIO_COUNT=%%A
 
-    echo   检测到 !AUDIO_COUNT! 个音频轨道
+    echo   Detected !AUDIO_COUNT! audio track(s)
 
-    REM 获取源视频比特率
+    REM Get source video bitrate
     for /f "tokens=*" %%B in ('ffprobe -v error -select_streams v:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "!INPUT_FILE!" 2^>nul') do set SOURCE_BITRATE=%%B
 
     if "!SOURCE_BITRATE!"=="" set SOURCE_BITRATE=0
 
-    REM 编码参数设置
+    REM Encoding parameters
     set "VIDEO_PARAMS=-c:v libx264 -preset medium -crf 23"
     set "AUDIO_PARAMS=-c:a aac -b:a 192k -ac 2"
 
     if !SOURCE_BITRATE! GTR 0 (
         set /a TARGET_BITRATE=!SOURCE_BITRATE!/1000
-        echo   源视频参考比特率: !TARGET_BITRATE! kbps
+        echo   Source bitrate reference: !TARGET_BITRATE! kbps
 
         if !TARGET_BITRATE! LSS 2000 (
             set "VIDEO_PARAMS=-c:v libx264 -preset medium -crf 20"
@@ -119,66 +119,68 @@ for /r "%INPUT_DIR%" %%F in (*.mkv *.mov *.mp4) do (
         )
     )
 
-    REM 执行转换
-    echo   开始编码...
+    REM Execute conversion
+    echo   Starting encoding...
 
     if !AUDIO_COUNT! GTR 1 (
-        REM 多音轨混音
+        REM Multiple audio tracks - mix
         ffmpeg -i "!INPUT_FILE!" -filter_complex "amix=inputs=!AUDIO_COUNT!:duration=longest" -map 0:v -map "[a]" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!" >nul 2>&1
     ) else (
-        REM 单音轨
+        REM Single audio track
         ffmpeg -i "!INPUT_FILE!" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!" >nul 2>&1
     )
 
     if errorlevel 1 (
-        echo   [警告] 处理失败: !FILENAME!
+        echo   [WARNING] Processing failed: !FILENAME!
         set /a FAIL+=1
     ) else (
-        echo   完成: %%~nF.mp4
+        echo   Completed: %%~nF.mp4
         set /a SUCCESS+=1
     )
 
     echo.
 )
 
-REM 总结
+REM Summary
 echo ===================================
-echo [信息] 处理完成！
-echo   成功: %SUCCESS%
-echo   失败: %FAIL%
-echo   总计: %COUNT%
+echo [INFO] Processing completed!
+echo   Success: %SUCCESS%
+echo   Failed: %FAIL%
+echo   Total: %COUNT%
 echo ===================================
+pause
 
 endlocal
 exit /b 0
 
 :usage
-echo 用法: %~nx0 [输入目录] [输出目录]
+echo Usage: %~nx0 [input_directory] [output_directory]
 echo.
-echo 功能：
-echo   - 扫描输入目录中的 mkv/mov/mp4 视频文件（递归所有子文件夹）
-echo   - 将每个视频的所有音频轨道混音合并为一个音轨
-echo   - 使用 h.264 重新编码视频（参考源视频质量）
-echo   - 保持原视频的分辨率和帧率
-echo   - 输出为 MP4 格式到指定目录
+echo Features:
+echo   - Scan mkv/mov/mp4 video files in input directory (recursive all subfolders)
+echo   - Mix all audio tracks into one
+echo   - Re-encode video to H.264 (smart quality reference)
+echo   - Keep original resolution and frame rate
+echo   - Output as MP4 format
 echo.
-echo 使用方式：
-echo   1. 默认模式（推荐）
-echo      将脚本放入视频文件夹中，直接运行：
+echo Usage modes:
+echo   1. Default mode (recommended)
+echo      Place script in video folder and run:
 echo      %~nx0
-echo      自动处理当前目录及所有子文件夹，输出到 'output' 文件夹
+echo      Auto process current directory and subfolders, output to 'output' folder
 echo.
-echo   2. 自定义路径模式
-echo      指定输入和输出目录：
+echo   2. Custom path mode
+echo      Specify input and output directories:
 echo      %~nx0 C:\Videos\raw C:\Videos\processed
 echo.
-echo 依赖：
-echo   - ffmpeg (需要添加到 PATH 环境变量)
+echo Dependencies:
+echo   - ffmpeg (must be added to PATH environment variable)
 echo.
-echo 示例：
-echo   # 默认模式：处理当前目录及子文件夹
+echo Examples:
+echo   # Default mode: process current directory and subfolders
 echo   %~nx0
 echo.
-echo   # 自定义路径
+echo   # Custom path
 echo   %~nx0 C:\Videos\raw_movies C:\Videos\processed
+pause
 exit /b 1
