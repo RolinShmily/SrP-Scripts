@@ -316,6 +316,13 @@ AAC 编码音频
 
 ## 常见问题
 
+### Q: Windows 下运行脚本出现中文乱码怎么办？
+A: 脚本已内置 `chcp 65001` 命令切换到 UTF-8 编码。如果仍然出现乱码：
+1. 确保使用 PowerShell 或新版 CMD 运行脚本
+2. 如果使用 Git Bash 或 WSL，请使用 `.sh` 版本脚本
+3. 确保 .bat 文件以 UTF-8 with BOM 或 ANSI 编码保存
+4. 手动在 CMD 中执行：`chcp 65001` 然后再运行脚本
+
 ### Q: 编码速度很慢怎么办？
 A: 可以修改脚本中的 preset 参数，将 `medium` 改为 `fast` 或 `veryfast`。
 
