@@ -5,12 +5,25 @@
 # License: MIT
 
 # Set console encoding to UTF-8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+    # Ignore errors in older PowerShell versions
+}
+
+# Script parameters (with validation)
+if ($PSVersionTable.PSVersion.Major -lt 3) {
+    Write-Host "[WARNING] PowerShell version 3.0 or higher recommended" -ForegroundColor Yellow
+    Write-Host "[INFO] Current version: $($PSVersionTable.PSVersion)" -ForegroundColor Yellow
+}
 
 param(
-    [string]$InputDir,
-    [string]$OutputDir
+    [Parameter(Mandatory=$false)]
+    [string]$InputDir = "",
+
+    [Parameter(Mandatory=$false)]
+    [string]$OutputDir = ""
 )
 
 # Show usage
@@ -160,18 +173,45 @@ function Process-Video {
     # Execute conversion
     Write-Host "  Starting encoding..." -ForegroundColor Yellow
 
-    $ffmpegArgs = @("-i", $InputFile)
+    # Build ffmpeg arguments
+    $ffmpegArgs = @()
+
+    # Input file (use quotes for paths with spaces)
+    $ffmpegArgs += "-i"
+    $ffmpegArgs += "`"$InputFile`""
 
     if ($audioCount -gt 1) {
         Write-Host "  Using mix filter to merge $audioCount audio tracks"
-        $ffmpegArgs += "-filter_complex", "amix:inputs=$audioCount:duration=longest[a]", "-map", "0:v", "-map", "[a]"
+        $ffmpegArgs += "-filter_complex"
+        $ffmpegArgs += "amix:inputs=$audioCount:duration=longest[a]"
+        $ffmpegArgs += "-map"
+        $ffmpegArgs += "0:v"
+        $ffmpegArgs += "-map"
+        $ffmpegArgs += "[a]"
     } else {
-        $ffmpegArgs += "-map", "0"
+        $ffmpegArgs += "-map"
+        $ffmpegArgs += "0"
     }
 
-    $ffmpegArgs += $videoParams.Split(" ")
-    $ffmpegArgs += $audioParams.Split(" ")
-    $ffmpegArgs += "-movflags", "+faststart", "-y", $OutputFile
+    # Add video parameters (split by space and add each)
+    $videoParams.Split(" ") | ForEach-Object {
+        if (-not [string]::IsNullOrWhiteSpace($_)) {
+            $ffmpegArgs += $_
+        }
+    }
+
+    # Add audio parameters (split by space and add each)
+    $audioParams.Split(" ") | ForEach-Object {
+        if (-not [string]::IsNullOrWhiteSpace($_)) {
+            $ffmpegArgs += $_
+        }
+    }
+
+    # Output parameters
+    $ffmpegArgs += "-movflags"
+    $ffmpegArgs += "+faststart"
+    $ffmpegArgs += "-y"
+    $ffmpegArgs += "`"$OutputFile`""
 
     # Run ffmpeg
     $process = Start-Process -FilePath "ffmpeg" -ArgumentList $ffmpegArgs -NoNewWindow -PassThru -Wait
