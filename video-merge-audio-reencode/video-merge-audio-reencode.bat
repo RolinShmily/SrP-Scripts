@@ -79,10 +79,18 @@ if errorlevel 1 (
 )
 
 REM Find and move ffmpeg binaries from subfolder
+REM gyan.dev ffmpeg structure: ffmpeg-X.X.X-essentials_build/bin/*.exe
 for /d %%D in ("%TEMP_EXTRACT_DIR%\*") do (
     echo Found ffmpeg folder: %%~nxD
-    move /Y "%%D\*.exe" "%CACHE_DIR%\" >nul 2>&1
-    move /Y "%%D\*.dll" "%CACHE_DIR%\" >nul 2>&1
+    if exist "%%D\bin\ffmpeg.exe" (
+        echo Found ffmpeg.exe in bin subfolder
+        move /Y "%%D\bin\*.exe" "%CACHE_DIR%\" >nul
+        move /Y "%%D\bin\*.dll" "%CACHE_DIR%\" >nul
+    ) else (
+        echo Found ffmpeg.exe in root folder
+        move /Y "%%D\*.exe" "%CACHE_DIR%\" >nul
+        move /Y "%%D\*.dll" "%CACHE_DIR%\" >nul
+    )
 )
 
 REM Cleanup
