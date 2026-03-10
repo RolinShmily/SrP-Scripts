@@ -124,7 +124,7 @@ for /r "%INPUT_DIR%" %%F in (*.mkv *.mov *.mp4) do (
 
     if !AUDIO_COUNT! GTR 1 (
         REM Multiple audio tracks - mix
-        ffmpeg -i "!INPUT_FILE!" -filter_complex "amix=inputs=!AUDIO_COUNT!:duration=longest" -map 0:v -map "[a]" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!" >nul 2>&1
+        ffmpeg -i "!INPUT_FILE!" -filter_complex "amix=inputs=!AUDIO_COUNT!:duration=longest[a]" -map 0:v -map "[a]" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!" >nul 2>&1
     ) else (
         REM Single audio track
         ffmpeg -i "!INPUT_FILE!" !VIDEO_PARAMS! !AUDIO_PARAMS! -movflags +faststart -y "!OUTPUT_FILE!" >nul 2>&1

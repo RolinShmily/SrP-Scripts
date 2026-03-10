@@ -183,7 +183,7 @@ process_video() {
     local audio_filter=""
     if [ "$audio_count" -gt 1 ]; then
         # 多个音轨：使用 amix 滤镜混音
-        audio_filter="amix=inputs=$audio_count:duration=longest"
+        audio_filter="amix=inputs=$audio_count:duration=longest[a]"
         info "  使用混音滤镜合并 $audio_count 个音轨"
     fi
 
