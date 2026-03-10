@@ -199,7 +199,8 @@ process_video() {
             video_params="-c:v libx264 -preset medium -crf 20"
         else
             # 高比特率视频，使用两阶段编码
-            video_params="-c:v libx264 -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${target_bitrate*2}k"
+            local bufsize=$((target_bitrate * 2))
+            video_params="-c:v libx264 -preset medium -b:v ${target_bitrate}k -maxrate ${target_bitrate}k -bufsize ${bufsize}k"
         fi
     fi
 
