@@ -1,66 +1,62 @@
 # SrP-Scripts
 
-个人脚本集合，存放各种实用的小脚本。
+个人脚本集合，全平台通用的实用工具。
 
-## 简介
+## 🎯 特点
 
-这个仓库用于存放我日常使用和编写的一些实用脚本。
+- ✅ **全平台支持**：Windows、Linux、macOS
+- ✅ **开箱即用**：简单快捷，无需复杂配置
+- ✅ **自动优化**：智能检测并使用最优硬件加速
 
-所有脚本都支持跨平台使用（Windows、Linux、macOS）。
+## 📦 脚本列表
 
-## 脚本列表
+### 🎬 视频音频合并与重编码
 
-### video-merge-audio-reencode
+**跨平台视频处理工具**，一键合并音轨并重新编码。
 
-视频批量处理脚本，支持跨平台运行。
-
-**功能：**
-- 自动扫描指定目录中的 mkv/mov/mp4 视频文件
-- 将每个视频的所有音频轨道混音合并为一个音轨
-- 使用 h.264 重新编码视频（智能参考源视频质量）
-- 保持原视频的分辨率和帧率
-- 统一输出为 MP4 格式
+**核心功能：**
+- 🔍 自动扫描视频文件（支持递归子文件夹）
+- 🎵 合并所有音频轨道为一个
+- ⚡ 自动使用最优硬件编码器（10-50倍加速）
+- 🎬 输出标准 H.264 + MP4 格式
+- 📐 智能参考源视频质量
 
 **平台支持：**
-- Windows: `video-merge-audio-reencode.bat`
-- Linux/macOS: `video-merge-audio-reencode.sh`
+- 💻 **Windows**: `.bat` 脚本
+- 🐧 **Linux**: `.sh` 脚本
+- 🍎 **macOS**: `.sh` 脚本
 
-**使用方法：**
+**快速开始：**
 ```bash
 # Linux/macOS
-cd video-merge-audio-reencode
-./video-merge-audio-reencode.sh /path/to/input /path/to/output
+./video-merge-audio-reencode.sh
 
 # Windows
-cd video-merge-audio-reencode
-video-merge-audio-reencode.bat "C:\input" "C:\output"
+video-merge-audio-reencode.bat
 ```
 
-**依赖：**
-- FFmpeg (必装)
+📖 **[完整文档 →](video-merge-audio-reencode/README.md)**
 
-详见 [video-merge-audio-reencode/README.md](video-merge-audio-reencode/README.md)
-
-## 目录结构
+## 📁 目录结构
 
 ```
 SrP-Scripts/
 ├── video-merge-audio-reencode/     # 视频处理脚本
-│   ├── video-merge-audio-reencode.sh   # Linux/macOS 版本
-│   ├── video-merge-audio-reencode.bat  # Windows 版本
-│   └── README.md                        # 脚本详细说明
+│   ├── video-merge-audio-reencode.sh   # Linux/macOS
+│   ├── video-merge-audio-reencode.bat  # Windows
+│   └── README.md                        # 详细文档
 ├── LICENSE                         # MIT 许可证
 └── README.md                       # 本文件
 ```
 
-## 许可证
+## 📄 许可证
 
-本项目采用 MIT 许可证开源 - 详见 [LICENSE](LICENSE) 文件
+MIT License - 详见 [LICENSE](LICENSE)
 
-## 作者
+## 👤 作者
 
-RoL1n
+**RoL1n**
 
-## 贡献
+## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
