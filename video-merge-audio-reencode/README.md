@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- 🔍 **自动扫描**：扫描指定目录中的 mkv/mov/mp4 视频文件
+- 🔍 **自动扫描**：扫描指定目录中的 mkv/mov/mp4 视频文件（递归所有子文件夹）
 - 🎵 **智能混音**：将每个视频的所有音频轨道混音合并为一个音轨
 - 🎬 **H.264 编码**：使用 h.264 重新编码视频，智能参考源视频质量
 - 📐 **保持参数**：自动保持原视频的分辨率和帧率
@@ -59,26 +59,141 @@ brew install ffmpeg
 
 ## 使用方法
 
-### Windows
-```cmd
-video-merge-audio-reencode.bat "C:\Videos\raw_movies" "C:\Videos\processed"
-```
+### 方式一：默认模式（推荐）⭐
 
-### Linux / macOS
+将脚本放入包含视频文件的文件夹中，直接运行：
+
 ```bash
-# 添加执行权限 (首次使用)
-chmod +x video-merge-audio-reencode.sh
+# Linux/macOS
+./video-merge-audio-reencode.sh
 
-# 运行脚本
-./video-merge-audio-reencode.sh /path/to/videos /path/to/output
+# Windows
+video-merge-audio-reencode.bat
 ```
+
+**特点：**
+- ✅ 自动处理当前目录及所有子文件夹中的视频文件
+- ✅ 输出到当前目录下的 `output` 文件夹
+- ✅ 所有输出的 MP4 文件统一保存到 output 目录
+
+### 方式二：自定义路径模式
+
+指定输入和输出目录：
+
+```bash
+# Linux/macOS
+./video-merge-audio-reencode.sh /path/to/input /path/to/output
+
+# Windows
+video-merge-audio-reencode.bat "C:\Videos\raw" "C:\Videos\processed"
+```
+
+**注意：** 脚本会递归处理输入目录及其所有子文件夹中的视频文件。
 
 ## 参数说明
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
+| (无) | 默认模式：处理脚本所在目录及所有子文件夹 | `./script.sh` |
 | 输入目录 | 包含视频文件的源目录 | `/home/user/Videos/raw` |
 | 输出目录 | 处理后视频的保存目录 | `/home/user/Videos/processed` |
+
+## 使用场景示例
+
+### 场景 1：快速处理单个文件夹的视频
+
+**目录结构：**
+```
+我的视频/
+├── video-merge-audio-reencode.sh  (或 .bat)
+├── 电影1.mkv
+├── 电影2.mov
+└── 电影3.mp4
+```
+
+**操作：**
+```bash
+# 进入文件夹，直接运行脚本
+cd "我的视频"
+./video-merge-audio-reencode.sh  # Windows: video-merge-audio-reencode.bat
+```
+
+**结果：**
+```
+我的视频/
+├── video-merge-audio-reencode.sh
+├── 电影1.mkv
+├── 电影2.mov
+├── 电影3.mp4
+└── output/                      ← 自动创建
+    ├── 电影1.mp4
+    ├── 电影2.mp4
+    └── 电影3.mp4
+```
+
+### 场景 2：批量处理包含子文件夹的目录
+
+**目录结构：**
+```
+Videos/
+├── season-01/
+│   ├── ep01.mkv
+│   └── ep02.mkv
+├── season-02/
+│   ├── ep01.mkv
+│   └── ep02.mkv
+└── season-03/
+    ├── ep01.mkv
+    └── ep02.mkv
+```
+
+**操作：**
+```bash
+# 将脚本放入 Videos 文件夹中运行
+cd Videos
+./video-merge-audio-reencode.sh
+
+# 或者指定路径
+./video-merge-audio-reencode.sh /path/to/Videos /path/to/output
+```
+
+**结果：**
+```
+output/                          ← 所有视频统一输出到这里
+├── ep01.mp4
+├── ep02.mp4
+├── ep01.mp4
+├── ep02.mp4
+├── ep01.mp4
+└── ep02.mp4
+```
+
+### 场景 3：处理监控录像
+
+**目录结构：**
+```
+CCTV/
+├── 2024-01/
+│   ├── cam01.mkv
+│   └── cam02.mkv
+├── 2024-02/
+│   ├── cam01.mkv
+│   └── cam02.mkv
+└── 2024-03/
+    ├── cam01.mkv
+    └── cam02.mkv
+```
+
+**操作：**
+```bash
+# Linux/macOS
+./video-merge-audio-reencode.sh /storage/CCTV /storage/compressed
+
+# Windows
+video-merge-audio-reencode.bat "D:\CCTV" "D:\compressed"
+```
+
+**注意：** 所有子文件夹中的视频文件都会被处理，输出的 MP4 文件会统一保存到输出目录中（平铺结构）。
 
 ## 编码策略
 
@@ -121,33 +236,16 @@ AAC 编码音频
 保存到输出目录
 ```
 
-## 示例
-
-### 处理家庭视频
-```bash
-# Linux/macOS
-./video-merge-audio-reencode.sh ~/Movies/raw ~/Movies/processed
-
-# Windows
-video-merge-audio-reencode.bat "C:\Movies\raw" "C:\Movies\processed"
-```
-
-### 批量处理监控录像
-```bash
-# Linux/macOS
-./video-merge-audio-reencode.sh /storage/cctv/raw /storage/cctv/compressed
-
-# Windows
-video-merge-audio-reencode.bat "D:\CCTV\raw" "D:\CCTV\compressed"
-```
-
 ## 输出示例
 
 ```
-[INFO] 依赖检查通过
-[INFO] 输出目录: /path/to/output
-[INFO] 扫描视频文件...
-[INFO] 找到 3 个视频文件
+[信息] 默认模式：处理当前目录及子文件夹
+[信息] 输入目录: /home/user/Videos
+[信息] 输出目录: /home/user/Videos/output
+
+[信息] 依赖检查通过
+[信息] 扫描视频文件...
+[信息] 找到 6 个视频文件（包含子文件夹）
 
 [INFO] 正在处理: video1.mkv
   检测到 2 个音频轨道
@@ -160,6 +258,13 @@ video-merge-audio-reencode.bat "D:\CCTV\raw" "D:\CCTV\compressed"
   检测到 1 个音频轨道
   开始编码...
   完成: video2.mp4
+
+[INFO] 正在处理: video3.mp4
+  检测到 3 个音频轨道
+  源视频参考比特率: 1500 kbps
+  使用混音滤镜合并 3 个音轨
+  开始编码...
+  完成: video3.mp4
 
 ===================================
 [INFO] 处理完成！
@@ -187,6 +292,12 @@ A: 可以修改脚本中的 preset 参数，将 `medium` 改为 `fast` 或 `very
 A: 修改 CRF 值（默认 23）：
 - 更低质量（文件更小）：CRF 28
 - 更高质量（文件更大）：CRF 18
+
+### Q: 默认模式会处理子文件夹吗？
+A: **会**。默认模式会递归处理当前目录及所有子文件夹中的视频文件。所有输出的 MP4 文件会统一保存到 output 目录中。
+
+### Q: 如果只想处理当前目录，不处理子文件夹怎么办？
+A: 目前脚本默认递归处理所有子文件夹。如果只想处理当前目录，可以将视频文件移动到一个不含子文件夹的目录中，或者使用自定义路径模式指定具体的子文件夹。
 
 ### Q: 能否批量处理多个目录？
 A: 可以使用循环命令：

@@ -35,7 +35,7 @@ fi
 
 # 打印使用说明
 usage() {
-    echo "用法: $0 <输入目录> <输出目录>"
+    echo "用法: $0 [输入目录] [输出目录]"
     echo ""
     echo "功能："
     echo "  - 扫描输入目录中的 mkv/mov/mp4 视频文件"
@@ -43,6 +43,16 @@ usage() {
     echo "  - 使用 h.264 重新编码视频（参考源视频质量）"
     echo "  - 保持原视频的分辨率和帧率"
     echo "  - 输出为 MP4 格式到指定目录"
+    echo ""
+    echo "使用方式："
+    echo "  1. 默认模式（推荐）"
+    echo "     将脚本放入视频文件夹中，直接运行："
+    echo "     $0"
+    echo "     自动处理当前目录及所有子文件夹，输出到 './output' 文件夹"
+    echo ""
+    echo "  2. 自定义路径模式"
+    echo "     指定输入和输出目录："
+    echo "     $0 /path/to/videos /path/to/output"
     echo ""
     echo "依赖："
     echo "  - ffmpeg"
@@ -59,7 +69,11 @@ usage() {
     fi
     echo ""
     echo "示例："
-    echo "  $0 /path/to/videos /path/to/output"
+    echo "  # 默认模式：处理当前目录及子文件夹"
+    echo "  $0"
+    echo ""
+    echo "  # 自定义路径"
+    echo "  $0 ~/Videos/raw ~/Videos/processed"
     exit 1
 }
 
@@ -214,13 +228,34 @@ process_video() {
 
 # 主函数
 main() {
-    # 检查参数
-    if [ $# -ne 2 ]; then
+    local input_dir=""
+    local output_dir=""
+
+    # 智能参数处理
+    if [ $# -eq 0 ]; then
+        # 默认模式：使用脚本所在目录
+        input_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        output_dir="${input_dir}/output"
+
+        info "默认模式：处理当前目录及子文件夹"
+        info "输入目录: $input_dir"
+        info "输出目录: $output_dir"
+        echo ""
+
+    elif [ $# -eq 2 ]; then
+        # 自定义路径模式
+        input_dir="$1"
+        output_dir="$2"
+
+        info "自定义路径模式"
+        info "输入目录: $input_dir"
+        info "输出目录: $output_dir"
+        echo ""
+
+    else
+        # 参数数量错误
         usage
     fi
-
-    local input_dir="$1"
-    local output_dir="$2"
 
     # 检查依赖
     check_dependencies
@@ -228,7 +263,7 @@ main() {
     # 验证目录
     validate_directories "$input_dir" "$output_dir"
 
-    # 查找视频文件
+    # 查找视频文件（递归所有子文件夹）
     info "扫描视频文件..."
     local video_files=()
     while IFS= read -r -d '' file; do
