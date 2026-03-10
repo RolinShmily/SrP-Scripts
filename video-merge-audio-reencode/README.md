@@ -2,6 +2,37 @@
 
 跨平台视频处理脚本，支持 Windows、Linux 和 macOS。
 
+## 🚀 快速开始
+
+只需两步，立即开始处理视频：
+
+### Linux / macOS
+
+```bash
+# 1️⃣ 下载脚本到您的视频文件夹
+cd /path/to/your/videos
+curl -LJO https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.sh
+chmod +x video-merge-audio-reencode.sh
+
+# 2️⃣ 直接运行（自动处理当前目录及所有子文件夹）
+./video-merge-audio-reencode.sh
+```
+
+### Windows PowerShell
+
+```powershell
+# 1️⃣ 下载脚本到您的视频文件夹
+cd C:\path\to\your\videos
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/RolinShmily/SrP-Scripts/main/video-merge-audio-reencode/video-merge-audio-reencode.bat" -OutFile "video-merge-audio-reencode.bat"
+
+# 2️⃣ 直接运行
+.\video-merge-audio-reencode.bat
+```
+
+就这么简单！处理后的视频会自动保存在 `output` 文件夹中。✨
+
+---
+
 ## 功能特性
 
 - 🔍 **自动扫描**：扫描指定目录中的 mkv/mov/mp4 视频文件（递归所有子文件夹）
