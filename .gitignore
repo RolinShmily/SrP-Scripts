@@ -11,6 +11,14 @@ windowslog.txt
 *.swo
 *~
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
 # 操作系统文件
 .DS_Store
 .DS_Store?
@@ -35,3 +43,6 @@ processed/
 test/
 tests/
 *.test.*
+
+.spec-workflow
+.claude
