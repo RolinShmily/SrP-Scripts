@@ -17,10 +17,12 @@ echo 4. Enable Classic File Explorer Interface
 echo 5. Disable F1 Key for Edge Help
 echo 6. Enable F1 Key for Edge Help
 echo 7. Extend the pause duration for Windows 11 updates
-echo 8. Exit Script
+echo 8. Disable Windows Defender
+echo 9. Enable Windows Defender
+echo 10. Exit Script
 echo ==============================================
 
-set /p "choice=Please enter your choice (1-7): "
+set /p "choice=Please enter your choice (1-10): "
 
 if "%choice%"=="1" goto FullRightClick
 if "%choice%"=="2" goto CompactRightClick
@@ -29,9 +31,11 @@ if "%choice%"=="4" goto ClassicExplorer
 if "%choice%"=="5" goto DisableF1Help
 if "%choice%"=="6" goto EnableF1Help
 if "%choice%"=="7" goto Extend
-if "%choice%"=="8" goto EXIT
+if "%choice%"=="8" goto DisableDefender
+if "%choice%"=="9" goto EnableDefender
+if "%choice%"=="10" goto EXIT
 
-echo Invalid option, please enter a number between 1 and 7
+echo Invalid option, please enter a number between 1 and 10
 pause
 goto MENU
 
@@ -151,6 +155,40 @@ if %errorlevel% equ 0 (
     echo Success: The pause duration for Windows 11 updates extended.
 ) else (
     echo Error: Failed to extend the pause duration for Windows 11 updates.
+)
+echo.
+pause
+goto MENU
+
+:DisableDefender
+echo.
+echo Disabling Windows Defender...
+:: 设置 DisableAntiSpyware 为 1，禁用 Windows Defender
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableAntiSpyware" /t REG_DWORD /d 1 /f
+:: 设置 DisableRealtimeMonitoring 为 1，禁用实时保护
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableRealtimeMonitoring" /t REG_DWORD /d 1 /f
+
+if %errorlevel% equ 0 (
+    echo Success: Windows Defender disabled. Real-time protection is turned off. Please restart your computer for changes to take effect.
+) else (
+    echo Error: Failed to disable Windows Defender. Please run as administrator.
+)
+echo.
+pause
+goto MENU
+
+:EnableDefender
+echo.
+echo Enabling Windows Defender...
+:: 删除 DisableAntiSpyware 注册表值，恢复 Windows Defender
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableAntiSpyware" /f >nul 2>&1
+:: 删除 DisableRealtimeMonitoring 注册表值，恢复实时保护
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableRealtimeMonitoring" /f >nul 2>&1
+
+if %errorlevel% equ 0 (
+    echo Success: Windows Defender enabled. Real-time protection is restored. Please restart your computer for changes to take effect.
+) else (
+    echo Error: Failed to enable Windows Defender. Please run as administrator.
 )
 echo.
 pause

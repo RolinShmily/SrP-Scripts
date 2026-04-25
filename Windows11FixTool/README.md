@@ -25,6 +25,10 @@
 - **⏸️ Windows 更新暂停管理**
   - 延长 Windows 11 更新暂停时长（最长可达 7300 天）
 
+- **🛡️ Windows Defender 管理**
+  - 禁用 Windows Defender（通过注册表关闭实时保护）
+  - 启用 Windows Defender（恢复默认保护状态）
+
 ## 📋 系统要求
 
 - **操作系统：** Windows 11 (22H2 及以上版本)
@@ -108,6 +112,29 @@ Windows11FixTool.bat
 
 **生效方式：** 立即生效，需要在 设置 → Windows 更新 中手动暂停更新
 
+### 8. 禁用 Windows Defender
+
+**功能说明：** 通过修改注册表禁用 Windows Defender 的反间谍软件和实时保护功能。
+
+**适用场景：**
+- 安装第三方杀毒软件前需要关闭 Windows Defender
+- 特定软件与 Windows Defender 存在兼容性问题
+- 测试或开发环境需要临时关闭防护
+
+**生效方式：** 需要重启计算机
+
+**⚠️ 警告：** 禁用 Windows Defender 会降低系统安全性，请确保已安装替代的安全软件！
+
+### 9. 启用 Windows Defender
+
+**功能说明：** 恢复 Windows Defender 的默认保护状态，重新启用反间谍软件和实时保护。
+
+**适用场景：**
+- 需要恢复系统默认安全防护
+- 不再需要第三方杀毒软件时重新启用自带保护
+
+**生效方式：** 需要重启计算机
+
 ## 🔧 技术原理
 
 本工具通过修改 Windows 注册表实现各项功能：
@@ -116,6 +143,7 @@ Windows11FixTool.bat
 - **文件资源管理器：** 修改 `HKCU\Software\Classes\CLSID\` 下的相关 CLSID 项
 - **F1 键：** 修改 `HKCU\SOFTWARE\Classes\Typelib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}` 注册表项
 - **更新暂停：** 修改 `HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\FlightSettingsMaxPauseDays` 注册表项
+- **Windows Defender：** 修改 `HKLM\SOFTWARE\Policies\Microsoft\Windows Defender` 下的 `DisableAntiSpyware` 和 `DisableRealtimeMonitoring` 注册表值
 
 ## ⚠️ 注意事项
 
