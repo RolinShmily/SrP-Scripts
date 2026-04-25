@@ -163,13 +163,33 @@ goto MENU
 :DisableDefender
 echo.
 echo Disabling Windows Defender...
-:: 设置 DisableAntiSpyware 为 1，禁用 Windows Defender
+:: ==================================================
+:: Windows Defender 主策略项
+:: ==================================================
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableAntiSpyware" /t REG_DWORD /d 1 /f
-:: 设置 DisableRealtimeMonitoring 为 1，禁用实时保护
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableRealtimeMonitoring" /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableAntiVirus" /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableSpecialRunningModes" /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableRoutinelyTakingAction" /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "ServiceKeepAlive" /t REG_DWORD /d 1 /f
+:: ==================================================
+:: 实时保护策略项
+:: ==================================================
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableBehaviorMonitoring" /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableOnAccessProtection" /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableRealtimeMonitoring" /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableScanOnRealtimeEnable" /t REG_DWORD /d 1 /f
+:: ==================================================
+:: 签名更新策略项
+:: ==================================================
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates" /v "ForceUpdateFromMU" /t REG_DWORD /d 1 /f
+:: ==================================================
+:: Spynet 策略项（云端保护）
+:: ==================================================
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" /v "DisableBlockAtFirstSeen" /t REG_DWORD /d 1 /f
 
 if %errorlevel% equ 0 (
-    echo Success: Windows Defender disabled. Real-time protection is turned off. Please restart your computer for changes to take effect.
+    echo Success: Windows Defender fully disabled. Please restart your computer for changes to take effect.
 ) else (
     echo Error: Failed to disable Windows Defender. Please run as administrator.
 )
@@ -180,13 +200,33 @@ goto MENU
 :EnableDefender
 echo.
 echo Enabling Windows Defender...
-:: 删除 DisableAntiSpyware 注册表值，恢复 Windows Defender
+:: ==================================================
+:: 删除 Windows Defender 主策略项中的禁用值
+:: ==================================================
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableAntiSpyware" /f >nul 2>&1
-:: 删除 DisableRealtimeMonitoring 注册表值，恢复实时保护
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableRealtimeMonitoring" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableAntiVirus" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableSpecialRunningModes" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "DisableRoutinelyTakingAction" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v "ServiceKeepAlive" /f >nul 2>&1
+:: ==================================================
+:: 删除实时保护策略项中的禁用值
+:: ==================================================
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableBehaviorMonitoring" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableOnAccessProtection" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableRealtimeMonitoring" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableScanOnRealtimeEnable" /f >nul 2>&1
+:: ==================================================
+:: 删除签名更新策略项
+:: ==================================================
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates" /v "ForceUpdateFromMU" /f >nul 2>&1
+:: ==================================================
+:: 删除 Spynet 策略项
+:: ==================================================
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" /v "DisableBlockAtFirstSeen" /f >nul 2>&1
 
 if %errorlevel% equ 0 (
-    echo Success: Windows Defender enabled. Real-time protection is restored. Please restart your computer for changes to take effect.
+    echo Success: Windows Defender fully enabled. All protection features are restored. Please restart your computer for changes to take effect.
 ) else (
     echo Error: Failed to enable Windows Defender. Please run as administrator.
 )
